@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import api from "../../lib/api";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { label: "Edit Profile", path: "/recruiter-profile",   icon: "◯" },
 ];
 
-export default function Jobs() {
+function JobsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -141,6 +141,7 @@ export default function Jobs() {
 }
 
 const S = {
+  
   layout: { display: "flex", minHeight: "100vh", background: "#F8FAFC", fontFamily: "Inter, sans-serif" },
   
   /* Sidebar Styles */
@@ -206,3 +207,10 @@ const S = {
   spinner: { width: 30, height: 30, border: "3px solid #E2E8F0", borderTopColor: "#6366F1", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 16px" },
   emptyState: { gridColumn: "1 / -1", textAlign: "center", padding: 60, color: "#94A3B8" }
 };
+export default function Jobs() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <JobsContent />
+    </Suspense>
+  );
+}
