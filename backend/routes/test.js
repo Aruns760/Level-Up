@@ -4,12 +4,6 @@ const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-const OpenAI = require("openai");
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 /* =====================================================
    CREATE TEST (Admin Only)
 ===================================================== */
