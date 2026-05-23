@@ -1,0 +1,27 @@
+Project Name: TalentLevelUp
+
+Description:
+AI-Integrated Skill Development and Recruitment Platform
+
+Tech Stack:
+- Node.js
+- Express.js
+- PostgreSQL
+- Prisma ORM
+- JWT Authentication
+- Zod Validation
+
+Modules:
+- Authentication
+- Job Portal
+- Assessment Engine
+- Smart Ranking
+- Analytics
+- Leaderboard
+- Smart Matching
+
+Setup Instructions:
+1. npm install
+2. Setup .env
+3. npx prisma migrate dev
+4. npm run dev

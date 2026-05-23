@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================= ENUM =================
+
+enum Role {
+  admin
+  candidate
+  recruiter
+}
+
+// ================= USER =================
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  image     String?
+  createdAt DateTime @default(now())
+
+  xp        Int      @default(0)
+  level     String   @default("Beginner")
+
+  profile      Profile?
+  recruiter    Recruiter?
+  applications Application[]
+  results      Result[]
+}
+
+// ================= PROFILE =================
+
+model Profile {
+  id         Int    @id @default(autoincrement())
+  userId     Int    @unique
+
+  skills     String[]
+  education  String
+  experience String
+
+  level      String   @default("Beginner")
+  difficulty String   @default("easy")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ================= RECRUITER =================
+
+model Recruiter {
+  id             Int     @id @default(autoincrement())
+  userId         Int     @unique
+  companyName    String
+  companyWebsite String?
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+}
+
+// ================= JOB =================
+
+model Job {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  location    String
+  salary      String
+  recruiterId Int
+  createdAt   DateTime @default(now())
+
+  status String @default("pending")
+
+  recruiter    Recruiter     @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  applications Application[]
+}
+
+// ================= APPLICATION =================
+
+model Application {
+  id     Int @id @default(autoincrement())
+  userId Int
+  jobId  Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+}
+
+// ================= TEST =================
+
+model Test {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  duration    Int
+
+  level       String
+  difficulty  String
+  category    String
+
+  isActive    Boolean  @default(true)
+  status      String   @default("draft")
+
+  createdAt   DateTime @default(now())
+
+  questions   Question[]
+  results     Result[]
+}
+
+// ================= QUESTION =================
+
+model Question {
+  id          Int      @id @default(autoincrement())
+  testId      Int?
+
+  question    String
+
+  optionA     String?
+  optionB     String?
+  optionC     String?
+  optionD     String?
+
+  correct     String
+  marks       Int      @default(1)
+
+  type        String   @default("mcq")
+  category    String?
+  difficulty  String   @default("medium")
+
+  codeTemplate   String?
+  expectedOutput String?
+
+  explanation String?
+
+  createdAt   DateTime @default(now())
+
+  test Test? @relation(fields: [testId], references: [id], onDelete: Cascade)
+}
+
+// ================= RESULT =================
+
+model Result {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  testId     Int
+
+  score      Int
+  total      Int
+  percentage Float
+
+  xpEarned   Int
+  answers    Json?
+
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, testId])
+}
