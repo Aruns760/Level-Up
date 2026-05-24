@@ -506,17 +506,25 @@ export default function HomePage() {
   }, [bootIdx, phase]);
 
   // Auto-redirect after boot + display
-  useEffect(() => {
-    if (phase !== "main") return;
-    const t = setTimeout(() => goLogin(), 9000);
-    return () => clearTimeout(t);
-  }, [phase]);
+const goLogin = useCallback(() => {
+  if (phase === "exit") return;
 
-  const goLogin = useCallback(() => {
-    if (phase === "exit") return;
-    setPhase("exit");
-    setTimeout(() => router.push("/login"), 800);
-  }, [phase, router]);
+  setPhase("exit");
+
+  setTimeout(() => {
+    router.push("/login");
+  }, 800);
+}, [phase, router]);
+
+useEffect(() => {
+  if (phase !== "main") return;
+
+  const t = setTimeout(() => {
+    goLogin();
+  }, 9000);
+
+  return () => clearTimeout(t);
+}, [phase, goLogin]);
 
   const handleEyeWake = useCallback(() => setEyeWoke(true), []);
 
