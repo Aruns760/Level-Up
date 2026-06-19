@@ -63,7 +63,7 @@ export default function Navbar() {
             {image ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={`http://localhost:5000${image}`}
+                src={`http://localhost:3000${image}`}
                 className="w-10 h-10 rounded-full object-cover border border-gray-200"
                 alt="Avatar"
                 onError={(e) => { e.target.onerror = null; setImage(""); }}

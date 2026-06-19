@@ -19,7 +19,7 @@ const ROLE_META = {
   candidate: { label: "CANDIDATE", color: "#00FF9D", glow: "rgba(0,255,157,0.35)",      dot: "#00FF9D" },
 };
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 export default function AdminDashboard() {
   const router = useRouter();

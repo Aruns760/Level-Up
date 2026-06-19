@@ -14,7 +14,7 @@ export default function AppliedJobs() {
   const fetchAppliedJobs = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:5000/api/jobs/my-applications",
+        "http://localhost:3000/api/jobs/my-applications",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -35,7 +35,7 @@ export default function AppliedJobs() {
   const withdrawJob = async (jobId) => {
     try {
       await axios.delete(
-        `http://localhost:5000/api/jobs/withdraw/${jobId}`,
+        `http://localhost:3000/api/jobs/withdraw/${jobId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

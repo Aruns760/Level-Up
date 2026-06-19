@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../../lib/api";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/admin/dashboard", icon: "⊞", glyph: "01" },

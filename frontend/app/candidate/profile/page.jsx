@@ -93,7 +93,7 @@ export default function Profile() {
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/candidate/profile", {
+        const res = await axios.get("http://localhost:3000/api/candidate/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(res.data);
@@ -358,7 +358,7 @@ export default function Profile() {
                     <div className="avatar-ring" />
                     <div className="avatar-ring-2" />
                     <img 
-                      src={user.image ? `http://localhost:5000${user.image}` : "https://via.placeholder.com/300"} 
+                      src={user.image ? `http://localhost:3000${user.image}` : "https://via.placeholder.com/300"} 
                       alt="Avatar" 
                       className="avatar-img" 
                     />

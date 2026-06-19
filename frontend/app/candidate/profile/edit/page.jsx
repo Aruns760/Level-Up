@@ -96,7 +96,7 @@ export default function EditProfile() {
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/candidate/profile", {
+        const res = await axios.get("http://localhost:3000/api/candidate/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const user = res.data;
@@ -140,7 +140,7 @@ export default function EditProfile() {
     if (!image) return;
     const formData = new FormData();
     formData.append("image", image);
-    await axios.post("http://localhost:5000/api/user/upload", formData, {
+    await axios.post("http://localhost:3000/api/user/upload", formData, {
       headers: { Authorization: `Bearer ${token}` },
     });
   };
@@ -153,7 +153,7 @@ export default function EditProfile() {
     try {
       if (image) await handleImageUpload(token);
 
-      await axios.put("http://localhost:5000/api/candidate/profile", {
+      await axios.put("http://localhost:3000/api/candidate/profile", {
         name: form.name,
         skills: form.skills,
         education: form.education,

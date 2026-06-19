@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { label: "Questions", path: "/admin/questions", icon: "?", glyph: "06" },
 ];
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 export default function QuestionsPage() {
   const router = useRouter();

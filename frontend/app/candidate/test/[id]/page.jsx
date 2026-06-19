@@ -188,7 +188,7 @@ export default function TestPage() {
     if (submitted) return;
     setSubmitted(true);
     try {
-      const res = await axios.post(`http://localhost:5000/api/tests/submit/${id}`, { answers }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post(`http://localhost:3000/api/tests/submit/${id}`, { answers }, { headers: { Authorization: `Bearer ${token}` } });
       setResult({ score: res.data.score, total: res.data.total });
     } catch (err) {
       console.error(err);
@@ -201,7 +201,7 @@ export default function TestPage() {
     if (!token || !id) return;
     let isMounted = true;
 
-    axios.get("http://localhost:5000/api/tests/my-results", { headers: { Authorization: `Bearer ${token}` } })
+    axios.get("http://localhost:3000/api/tests/my-results", { headers: { Authorization: `Bearer ${token}` } })
       .then(res => {
         if (!isMounted) return;
         const already = res.data.some(r => r.testId === Number(id));
@@ -218,7 +218,7 @@ export default function TestPage() {
 
   useEffect(() => {
     if (!id || !token || checking) return;
-    axios.get(`http://localhost:5000/api/tests/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(`http://localhost:3000/api/tests/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(res => {
         setTest(res.data);
         const secs = (res.data.duration || 10) * 60;

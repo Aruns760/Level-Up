@@ -142,15 +142,15 @@ export default function Dashboard() {
     (async () => {
       try {
         const [profileRes, jobsRes, appliedRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/candidate/profile", { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get("http://localhost:5000/api/jobs"),
-          axios.get("http://localhost:5000/api/jobs/applied-ids", { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get("http://localhost:3000/api/candidate/profile", { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get("http://localhost:3000/api/jobs"),
+          axios.get("http://localhost:3000/api/jobs/applied-ids", { headers: { Authorization: `Bearer ${token}` } }),
         ]);
         setUser(profileRes.data);
         setJobs(jobsRes.data);
         setAppliedJobs(appliedRes.data);
-        try { const r = await axios.get("http://localhost:5000/api/tests/my-tests", { headers: { Authorization: `Bearer ${token}` } }); setTests(r.data); } catch {}
-        try { const r = await axios.get("http://localhost:5000/api/tests/my-results", { headers: { Authorization: `Bearer ${token}` } }); setResults(r.data); } catch {}
+        try { const r = await axios.get("http://localhost:3000/api/tests/my-tests", { headers: { Authorization: `Bearer ${token}` } }); setTests(r.data); } catch {}
+        try { const r = await axios.get("http://localhost:3000/api/tests/my-results", { headers: { Authorization: `Bearer ${token}` } }); setResults(r.data); } catch {}
       } catch (e) { 
         console.error(e); 
       } finally { 
@@ -180,7 +180,7 @@ export default function Dashboard() {
     try {
       // Re-fetch token here so this function always has the correct scope
       const token = localStorage.getItem("token");
-      await axios.post(`http://localhost:5000/api/jobs/apply/${jobId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`http://localhost:3000/api/jobs/apply/${jobId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       setAppliedJobs(p => [...p, jobId]);
       notify("Mission accepted — application sent!");
     } catch (e) { 
@@ -603,7 +603,7 @@ export default function Dashboard() {
                 <div className="topbar-avatar" style={{ overflow: "hidden" }}>
                   {user.image ? (
                     <img 
-                      src={`http://localhost:5000${user.image}`} 
+                      src={`http://localhost:3000${user.image}`} 
                       alt="avatar" 
                       style={{ width: "100%", height: "100%", objectFit: "cover" }} 
                     />
@@ -629,7 +629,7 @@ export default function Dashboard() {
                     <div className="hero-avatar">
                   {user.image ? (
                     <img 
-                      src={`http://localhost:5000${user.image}`} 
+                      src={`http://localhost:3000${user.image}`} 
                       alt="avatar" 
                       style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "14px" }} 
                     />

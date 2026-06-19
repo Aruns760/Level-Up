@@ -167,7 +167,7 @@ export default function RecruiterProfile() {
   };
 
   const initials = (name = "") => name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "R";
-  const imgSrc = preview || (image ? `http://localhost:5000${image}` : null);
+  const imgSrc = preview || (image ? `http://localhost:3000${image}` : null);
   const hasChanges = JSON.stringify(form) !== JSON.stringify(original);
 
   if (loading) return (

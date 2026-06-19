@@ -193,7 +193,7 @@ export default function RecruiterDashboard() {
             <div style={S.bannerLeft}>
               {image ? (
                 <img
-                  src={`http://localhost:5000${image}`}
+                  src={`http://localhost:3000${image}`}
                   alt="Profile"
                   style={S.profileImg}
                   onError={() => setImage("")}

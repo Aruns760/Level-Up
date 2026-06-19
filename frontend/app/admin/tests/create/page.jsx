@@ -32,7 +32,7 @@ const CATEGORY_META = {
   coding:    { icon: "⌨", label: "CODING",    color: "#00FF9D" },
 };
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 const DEFAULT_FORM = {
   title: "",

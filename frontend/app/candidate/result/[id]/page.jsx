@@ -17,7 +17,7 @@ export default function ResultPage() {
     if (!id || !token) return;
 
     axios
-      .get(`http://localhost:5000/api/tests/result/${id}`, {
+      .get(`http://localhost:3000/api/tests/result/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setData(res.data))

@@ -16,6 +16,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
+      "http://localhost:3001",
       "https://your-frontend.vercel.app",
     ],
     credentials: true,
@@ -26,7 +27,11 @@ app.use(
 app.use(express.json());
 
 // Security
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 
 // Rate Limiter
 const limiter = rateLimit({
@@ -43,7 +48,16 @@ if (process.env.NODE_ENV === "development") {
 
 /* ✅ STATIC FILES */
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+  "/uploads",
+  cors(),
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
 
 /* 📦 ROUTES */
 
@@ -72,7 +86,7 @@ const swaggerSpec = require("./swagger");
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-/* 🧪 TEST ROUTES */
+/* 🧪 TEST ROUTE */
 
 app.get("/api/test", (req, res) => {
   res.json({
@@ -90,12 +104,11 @@ app.get("/", (req, res) => {
 /* ❌ ERROR HANDLER */
 
 const errorHandler = require("./middleware/errorMiddleware");
-
 app.use(errorHandler);
 
 /* 🚀 SERVER */
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

@@ -21,10 +21,10 @@ export default function TestsPage() {
     const fetchData = async () => {
       try {
         const [testsRes, resultsRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/tests/my-tests", {
+          axios.get("http://localhost:3000/api/tests/my-tests", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get("http://localhost:5000/api/tests/my-results", {
+          axios.get("http://localhost:3000/api/tests/my-results", {
             headers: { Authorization: `Bearer ${token}` },
           })
         ]);

@@ -20,7 +20,7 @@ const STATUS_META = {
   rejected: { color: "#FF4D6D", glow: "rgba(255,77,109,0.3)",   bg: "rgba(255,77,109,0.08)",  label: "REJECTED" },
 };
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 export default function AdminJobs() {
   const router = useRouter();

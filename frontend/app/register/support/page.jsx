@@ -286,9 +286,15 @@ export default function SupportRegister() {
       await api.post("/auth/register",{...form,role:"admin"});
       showToast("ADMIN NODE ACTIVATED. ROUTING...","success");
       setTimeout(()=>router.push("/login"),1800);
-    }catch(err){
-      showToast(err?.response?.data?.message||"SYSTEM BREACH DETECTED.","error");
-    }finally{setLoading(false);}
+    }catch (err) {
+  console.log("Register Error:", err);
+  console.log("Response:", err?.response?.data);
+
+  showToast(
+    err?.response?.data?.message || "SYSTEM BREACH DETECTED.",
+    "error"
+  );
+}{setLoading(false);}
   };
 
   /* ── Boot screen ── */

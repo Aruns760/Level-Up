@@ -26,7 +26,7 @@ const CATEGORY_META = {
   coding:    { icon: "⌨", color: "#00FF9D" },
 };
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 export default function ManageTestsPage() {
   const router = useRouter();
