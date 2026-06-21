@@ -86,8 +86,6 @@ function Particles({ color }) {
       ctx.clearRect(0, 0, cvs.width, cvs.height);
       pts.forEach(p => {
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = color.replace(")", `,${p.o})`).replace("rgb(", "rgba(").replace("#", "rgba(").replace(/^rgba\(([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2}),/, (_, r, g, b) => `rgba(${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},`);
-        // simpler approach
         ctx.fillStyle = `rgba(99,202,255,${p.o})`;
         ctx.fill();
         p.x += p.vx; p.y += p.vy;
@@ -116,29 +114,47 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notification, setNotification] = useState(null);
-
-  // Initialize loading to true so server and client always match on first render
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [bountyFilter, setBountyFilter] = useState("All");
+  const searchRef = useRef(null);
 
   /* ── Themes ── */
   const THEMES = {
-    cyan:   { name: "NEXUS",    primary: "#00e5ff", secondary: "#0072ff", bg: "#020b18", card: "rgba(0,229,255,0.04)",   glow: "rgba(0,229,255,0.35)",  muted: "rgba(0,229,255,0.12)" },
-    violet: { name: "PHANTOM",  primary: "#b347ff", secondary: "#6600ff", bg: "#0d0415", card: "rgba(179,71,255,0.04)",  glow: "rgba(179,71,255,0.35)", muted: "rgba(179,71,255,0.12)" },
-    amber:  { name: "INFERNO",  primary: "#ffaa00", secondary: "#ff4400", bg: "#140a00", card: "rgba(255,170,0,0.04)",   glow: "rgba(255,170,0,0.35)",  muted: "rgba(255,170,0,0.12)" },
-    emerald:{ name: "MATRIX",   primary: "#00ff87", secondary: "#00c2a8", bg: "#011209", card: "rgba(0,255,135,0.04)",   glow: "rgba(0,255,135,0.35)",  muted: "rgba(0,255,135,0.12)" },
+    cyan:    { name: "NEXUS",   primary: "#00e5ff", secondary: "#0072ff", bg: "#020b18", card: "rgba(0,229,255,0.04)",   glow: "rgba(0,229,255,0.35)",  muted: "rgba(0,229,255,0.12)" },
+    violet:  { name: "PHANTOM", primary: "#b347ff", secondary: "#6600ff", bg: "#0d0415", card: "rgba(179,71,255,0.04)",  glow: "rgba(179,71,255,0.35)", muted: "rgba(179,71,255,0.12)" },
+    amber:   { name: "INFERNO", primary: "#ffaa00", secondary: "#ff4400", bg: "#140a00", card: "rgba(255,170,0,0.04)",   glow: "rgba(255,170,0,0.35)",  muted: "rgba(255,170,0,0.12)" },
+    emerald: { name: "MATRIX",  primary: "#00ff87", secondary: "#00c2a8", bg: "#011209", card: "rgba(0,255,135,0.04)",   glow: "rgba(0,255,135,0.35)",  muted: "rgba(0,255,135,0.12)" },
   };
   const T = THEMES[activeTheme];
 
+  /* ── Mock notifications ── */
+  const NOTIFS = [
+    { id: 1, text: "New bounty added: Senior React Dev", time: "2m ago", read: false, color: "#00e5ff" },
+    { id: 2, text: "Test result unlocked: Module #2", time: "1h ago", read: false, color: "#4ade80" },
+    { id: 3, text: "Your profile was viewed 12 times", time: "3h ago", read: true, color: "#a855f7" },
+    { id: 4, text: "Application shortlisted at Acme Corp", time: "1d ago", read: true, color: "#f59e0b" },
+  ];
+  const unreadCount = NOTIFS.filter(n => !n.read).length;
+
+  /* ── Keyboard shortcut Ctrl+K → focus search ── */
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   /* ── Fetch ── */
   useEffect(() => {
-    // Safely access token inside the effect
     const token = localStorage.getItem("token");
-    
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
+    if (!token) { setLoading(false); return; }
     (async () => {
       try {
         const [profileRes, jobsRes, appliedRes] = await Promise.all([
@@ -151,10 +167,10 @@ export default function Dashboard() {
         setAppliedJobs(appliedRes.data);
         try { const r = await axios.get("http://localhost:3000/api/tests/my-tests", { headers: { Authorization: `Bearer ${token}` } }); setTests(r.data); } catch {}
         try { const r = await axios.get("http://localhost:3000/api/tests/my-results", { headers: { Authorization: `Bearer ${token}` } }); setResults(r.data); } catch {}
-      } catch (e) { 
-        console.error(e); 
-      } finally { 
-        setLoading(false); 
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -178,15 +194,51 @@ export default function Dashboard() {
 
   const applyJob = async (jobId) => {
     try {
-      // Re-fetch token here so this function always has the correct scope
       const token = localStorage.getItem("token");
       await axios.post(`http://localhost:3000/api/jobs/apply/${jobId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       setAppliedJobs(p => [...p, jobId]);
       notify("Mission accepted — application sent!");
-    } catch (e) { 
-      notify(e.response?.data?.message || "Connection intercepted.", "error"); 
+    } catch (e) {
+      notify(e.response?.data?.message || "Connection intercepted.", "error");
     }
   };
+
+  /* ── Logout ── */
+  const handleLogout = () => {
+    if (!logoutConfirm) {
+      setLogoutConfirm(true);
+      setTimeout(() => setLogoutConfirm(false), 3000);
+      return;
+    }
+    localStorage.removeItem("token");
+    notify("Session terminated. Goodbye.", "success");
+    setTimeout(() => router.push("/login"), 800);
+  };
+
+  /* ── Profile completion ── */
+  const profileCompletion = useCallback((u) => {
+    if (!u) return 0;
+    let score = 0;
+    if (u.name) score += 20;
+    if (u.email) score += 20;
+    if (u.image) score += 15;
+    if (u.profile?.skills?.length) score += 25;
+    if (u.profile?.bio) score += 20;
+    return score;
+  }, []);
+
+  /* ── Filtered data ── */
+  const filteredJobs = jobs.filter(j => {
+    const q = searchQuery.toLowerCase();
+    const matchSearch = !q || j.title?.toLowerCase().includes(q) || j.company?.toLowerCase().includes(q) || j.location?.toLowerCase().includes(q);
+    const applied = appliedJobs.includes(j.id);
+    const matchFilter = bountyFilter === "All" || (bountyFilter === "Applied" && applied) || (bountyFilter === "Open" && !applied);
+    return matchSearch && matchFilter;
+  });
+
+  const filteredTests = tests.filter(t =>
+    !searchQuery || t.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   /* ── Loading ── */
   if (loading) return (
@@ -198,11 +250,12 @@ export default function Dashboard() {
   );
 
   const stats = user ? levelStats(user.xp || 0) : null;
+  const completion = profileCompletion(user);
   const MOCK_SPARK = [30, 45, 28, 60, 52, 70, 48, 65, 80, 74, 90, 85];
   const NAV = [
-    { id: "overview", icon: "⬡", label: "Overview" },
-    { id: "missions", icon: "⚔", label: "Missions" },
-    { id: "bounties", icon: "◎", label: "Bounties" },
+    { id: "overview",  icon: "⬡", label: "Overview" },
+    { id: "missions",  icon: "⚔", label: "Missions" },
+    { id: "bounties",  icon: "◎", label: "Bounties" },
     { id: "analytics", icon: "▲", label: "Analytics" },
   ];
 
@@ -292,11 +345,12 @@ export default function Dashboard() {
           position: relative;
         }
         .sb-item:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.03); }
-        .sb-item.active {
-          color: ${T.primary}; border-left-color: ${T.primary};
-          background: ${T.muted};
-        }
+        .sb-item.active { color: ${T.primary}; border-left-color: ${T.primary}; background: ${T.muted}; }
         .sb-item.active .sb-icon { filter: drop-shadow(0 0 4px ${T.primary}); }
+        .sb-item.danger { color: rgba(248,113,113,0.6); }
+        .sb-item.danger:hover { color: #f87171; background: rgba(248,113,113,0.06); border-left-color: #f87171; }
+        .sb-item.danger-confirm { color: #f87171; background: rgba(248,113,113,0.1); border-left-color: #f87171; animation: dangerPulse 0.5s ease; }
+        @keyframes dangerPulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
         .sb-icon { font-size: 16px; flex-shrink: 0; }
         .sb-label { white-space: nowrap; overflow: hidden; font-size: ${sidebarOpen ? "13px" : "0px"}; transition: font-size 0.3s; }
         .sb-badge {
@@ -306,8 +360,13 @@ export default function Dashboard() {
           display: ${sidebarOpen ? "block" : "none"};
         }
         .sb-footer {
-          margin-top: auto; padding: 16px;
+          margin-top: auto; padding: 12px 16px 16px;
           border-top: 1px solid rgba(255,255,255,0.05);
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .sb-status {
+          display: ${sidebarOpen ? "flex" : "none"};
+          align-items: center; gap: 6px; padding: 4px 0;
         }
 
         /* ── Main ── */
@@ -343,10 +402,52 @@ export default function Dashboard() {
           display: flex; align-items: center; justify-content: center;
           font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 900; color: #000;
           cursor: pointer; box-shadow: 0 0 12px ${T.glow};
+          overflow: hidden;
         }
         .topbar-meta { text-align: right; }
         .topbar-name { font-size: 13px; font-weight: 600; color: #fff; }
         .topbar-xp { font-size: 10px; font-family: 'Share Tech Mono', monospace; color: ${T.primary}; }
+
+        /* ── Bell button ── */
+        .bell-btn {
+          position: relative; width: 34px; height: 34px; border-radius: 8px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; font-size: 16px; transition: all 0.2s; flex-shrink: 0;
+        }
+        .bell-btn:hover { border-color: ${T.primary}; background: ${T.muted}; }
+        .bell-badge {
+          position: absolute; top: -4px; right: -4px;
+          width: 16px; height: 16px; border-radius: 50%;
+          background: #f87171; border: 2px solid ${T.bg};
+          font-family: 'Share Tech Mono', monospace; font-size: 8px;
+          color: #fff; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ── Notification panel ── */
+        .notif-panel {
+          position: absolute; top: calc(100% + 8px); right: 24px;
+          width: 300px; background: rgba(0,0,0,0.92); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 14px; z-index: 100; backdrop-filter: blur(24px);
+          animation: panelIn 0.2s ease;
+          overflow: hidden;
+        }
+        @keyframes panelIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+        .notif-header {
+          padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+          font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+          letter-spacing: 0.15em; color: ${T.primary};
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        .notif-item {
+          padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
+          display: flex; gap: 10px; align-items: flex-start;
+          transition: background 0.15s;
+        }
+        .notif-item:hover { background: rgba(255,255,255,0.03); }
+        .notif-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+        .notif-text { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.5; }
+        .notif-time { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.25); margin-top: 2px; }
 
         /* ── Theme switcher ── */
         .theme-switcher { display: flex; gap: 6px; align-items: center; }
@@ -367,23 +468,14 @@ export default function Dashboard() {
           backdrop-filter: blur(10px); position: relative; overflow: hidden;
           transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
         }
-        .card:hover {
-          border-color: rgba(255,255,255,0.14); transform: translateY(-2px);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-        }
+        .card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
         .card::before {
           content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
           background: linear-gradient(90deg, transparent, ${T.primary}, transparent);
           animation: scanline 3s infinite linear;
         }
         @keyframes scanline { 0% { opacity: 0.2 } 50% { opacity: 0.8 } 100% { opacity: 0.2 } }
-
-        .card-accent {
-          position: absolute; top: 0; right: 0;
-          width: 80px; height: 80px;
-          border-radius: 0 14px 0 80px;
-          opacity: 0.07;
-        }
+        .card-accent { position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 0 14px 0 80px; opacity: 0.07; }
 
         /* ── Stat grid ── */
         .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
@@ -392,22 +484,22 @@ export default function Dashboard() {
         .stat-val { font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 700; color: #fff; line-height: 1; }
         .stat-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
         .stat-up { color: #4ade80; }
-        .stat-down { color: #f87171; }
 
         /* ── XP/Level bar ── */
         .xp-bar-track { height: 8px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; margin-top: 6px; }
         .xp-bar-fill { height: 100%; border-radius: 99px; position: relative; transition: width 1.2s ease; }
         .xp-bar-fill::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 16px; background: rgba(255,255,255,0.5); filter: blur(4px); border-radius: 99px; }
 
+        /* ── Completion bar ── */
+        .completion-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .completion-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.3); white-space: nowrap; }
+        .completion-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
+        .completion-fill { height: 100%; border-radius: 99px; transition: width 1.2s ease; }
+        .completion-pct { font-family: 'Orbitron', monospace; font-size: 10px; width: 30px; text-align: right; }
+
         /* ── Section header ── */
-        .sec-head {
-          display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
-        }
-        .sec-icon {
-          width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-size: 16px;
-          border: 1px solid; position: relative;
-        }
+        .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .sec-icon { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid; position: relative; }
         .sec-title { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #fff; }
         .sec-count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto; }
 
@@ -420,13 +512,10 @@ export default function Dashboard() {
         }
         .item-card:hover { border-color: rgba(255,255,255,0.12); background: rgba(0,0,0,0.7); }
         .item-card.locked { opacity: 0.45; pointer-events: none; }
-        .item-index {
-          font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
-          color: rgba(255,255,255,0.2); width: 24px; flex-shrink: 0; text-align: center;
-        }
+        .item-index { font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.2); width: 24px; flex-shrink: 0; text-align: center; }
         .item-body { flex: 1; min-width: 0; }
         .item-title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-meta { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 10px; }
+        .item-meta { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .item-dot { width: 6px; height: 6px; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
         @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 
@@ -436,6 +525,16 @@ export default function Dashboard() {
         .chip-blue { border-color: ${T.primary}; background: ${T.muted}; }
         .chip-red { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
         .chip-gray { color: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+
+        /* ── Filter chips ── */
+        .filter-chip {
+          font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 0.1em;
+          padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+          cursor: pointer; text-transform: uppercase; transition: all 0.2s;
+          color: rgba(255,255,255,0.4); background: transparent;
+        }
+        .filter-chip:hover { border-color: ${T.primary}; color: ${T.primary}; background: ${T.muted}; }
+        .filter-chip.active { border-color: ${T.primary}; color: ${T.primary}; background: ${T.muted}; }
 
         /* ── CTA buttons ── */
         .btn {
@@ -450,6 +549,9 @@ export default function Dashboard() {
         .btn-outline { background: transparent; border-color: ${T.primary}; color: ${T.primary}; }
         .btn-outline:hover { background: ${T.muted}; }
         .btn-ghost { background: transparent; border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+        .btn-danger { background: transparent; border-color: #f87171; color: #f87171; }
+        .btn-danger:hover { background: rgba(248,113,113,0.1); box-shadow: 0 0 16px rgba(248,113,113,0.3); }
+        .btn-danger-confirm { background: #f87171; border-color: #f87171; color: #000; animation: dangerPulse 0.5s ease; }
 
         /* ── Two-column layout ── */
         .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -475,7 +577,7 @@ export default function Dashboard() {
           display: flex; align-items: center; justify-content: center;
           font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 900;
           color: ${T.primary}; box-shadow: 0 0 24px ${T.glow}, inset 0 0 20px ${T.muted};
-          position: relative;
+          position: relative; overflow: hidden;
         }
         .hero-level-ring {
           position: absolute; inset: -6px; border-radius: 22px;
@@ -490,9 +592,7 @@ export default function Dashboard() {
         /* ── Analytics area ── */
         .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
         @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
-        .ring-stat { display: flex; flex-direction: column; align-items: center; gap: 8px; }
         .ring-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.35); letter-spacing: 0.15em; text-transform: uppercase; text-align: center; }
-        .ring-val { font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700; color: #fff; }
 
         /* ── Notification toast ── */
         .toast {
@@ -511,7 +611,7 @@ export default function Dashboard() {
         .prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .prog-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.4); width: 80px; flex-shrink: 0; }
         .prog-track { flex: 1; height: 5px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
-        .prog-fill { height: 100%; border-radius: 99px; position: relative; }
+        .prog-fill { height: 100%; border-radius: 99px; }
         .prog-val { font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(255,255,255,0.4); width: 36px; text-align: right; }
 
         /* ── Activity feed ── */
@@ -524,6 +624,9 @@ export default function Dashboard() {
         .corner-tl { position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-top: 2px solid; border-left: 2px solid; border-radius: 2px 0 0 0; }
         .corner-br { position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; border-bottom: 2px solid; border-right: 2px solid; border-radius: 0 0 2px 0; }
 
+        /* ── Empty state ── */
+        .empty-state { text-align: center; padding: 40px; font-family: 'Share Tech Mono', monospace; color: rgba(255,255,255,0.2); font-size: 12px; letter-spacing: 0.2em; }
+
         @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         .fade-up { animation: fadeUp 0.5s ease forwards; }
         .fade-up-1 { animation-delay: 0.05s; }
@@ -532,7 +635,7 @@ export default function Dashboard() {
         .fade-up-4 { animation-delay: 0.2s; }
       `}</style>
 
-      <div className="db-root">
+      <div className="db-root" onClick={() => showNotifPanel && setShowNotifPanel(false)}>
         <HexGrid color={T.primary} />
         <Particles color={T.primary} />
 
@@ -565,25 +668,52 @@ export default function Dashboard() {
             <span className="sb-label">Settings</span>
           </div>
 
-          {sidebarOpen && (
-            <div className="sb-footer">
-              <div style={{ fontSize: 9, fontFamily: "'Share Tech Mono', monospace", color: "rgba(255,255,255,0.2)", letterSpacing: "0.15em", marginBottom: 8 }}>SYSTEM STATUS</div>
+          {/* Logout */}
+          <div
+            className={`sb-item ${logoutConfirm ? "danger-confirm" : "danger"}`}
+            onClick={handleLogout}
+            title={logoutConfirm ? "Click again to confirm logout" : "Logout"}
+          >
+            <span className="sb-icon">⏻</span>
+            <span className="sb-label">{logoutConfirm ? "Confirm?" : "Logout"}</span>
+          </div>
+
+          <div className="sb-footer">
+            <div className="sb-status">
+              <div style={{ fontSize: 9, fontFamily: "'Share Tech Mono', monospace", color: "rgba(255,255,255,0.2)", letterSpacing: "0.15em", flex: 1 }}>SYSTEM</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }} />
                 <span style={{ fontSize: 11, color: "#4ade80", fontFamily: "'Share Tech Mono', monospace" }}>Online</span>
               </div>
             </div>
-          )}
+            {sidebarOpen && user && stats && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.25)" }}>LVL {stats.lvl}</span>
+                  <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: T.primary }}>{user.xp || 0} XP</span>
+                </div>
+                <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${stats.pct}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})`, borderRadius: 99, transition: "width 1.2s ease" }} />
+                </div>
+              </div>
+            )}
+          </div>
         </aside>
 
         {/* ── MAIN ── */}
         <div className="main">
           {/* Topbar */}
-          <div className="topbar">
+          <div className="topbar" style={{ position: "relative" }}>
             <div className="topbar-title">
               {NAV.find(n => n.id === activeSection)?.label || "Dashboard"}
             </div>
-            <input className="topbar-search" placeholder="⌕  Search..." />
+            <input
+              ref={searchRef}
+              className="topbar-search"
+              placeholder="⌕  Search...  (Ctrl+K)"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
             <div className="topbar-right">
               {/* Theme switcher */}
               <div className="theme-switcher">
@@ -593,6 +723,13 @@ export default function Dashboard() {
                     onClick={() => setActiveTheme(key)} title={th.name} />
                 ))}
               </div>
+
+              {/* Bell */}
+              <div className="bell-btn" onClick={(e) => { e.stopPropagation(); setShowNotifPanel(o => !o); }}>
+                🔔
+                {unreadCount > 0 && <div className="bell-badge">{unreadCount}</div>}
+              </div>
+
               {user && (
                 <div style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
                   onClick={() => router.push("/candidate/profile")}>
@@ -600,20 +737,39 @@ export default function Dashboard() {
                     <div className="topbar-name">{user.name}</div>
                     <div className="topbar-xp">⚡ {(user.xp || 0).toLocaleString()} XP</div>
                   </div>
-                <div className="topbar-avatar" style={{ overflow: "hidden" }}>
-                  {user.image ? (
-                    <img 
-                      src={`http://localhost:3000${user.image}`} 
-                      alt="avatar" 
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-                    />
-                  ) : (
-                    user.name.charAt(0)
-                  )}
-                </div>       
-                 </div>
+                  <div className="topbar-avatar">
+                    {user.image
+                      ? <img src={`http://localhost:3000${user.image}`} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : user.name.charAt(0)}
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* Notification panel */}
+            {showNotifPanel && (
+              <div className="notif-panel" onClick={e => e.stopPropagation()}>
+                <div className="notif-header">
+                  <span>ALERTS</span>
+                  <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{unreadCount} UNREAD</span>
+                </div>
+                {NOTIFS.map(n => (
+                  <div key={n.id} className="notif-item" style={{ opacity: n.read ? 0.5 : 1 }}>
+                    <div className="notif-dot" style={{ background: n.color, boxShadow: `0 0 6px ${n.color}` }} />
+                    <div>
+                      <div className="notif-text">{n.text}</div>
+                      <div className="notif-time">{n.time}</div>
+                    </div>
+                    {!n.read && <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.primary, marginLeft: "auto", flexShrink: 0, marginTop: 4 }} />}
+                  </div>
+                ))}
+                <div style={{ padding: "10px 16px", textAlign: "center" }}>
+                  <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 10, color: T.primary, cursor: "pointer" }}>
+                    Mark all read
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── CONTENT ── */}
@@ -622,22 +778,15 @@ export default function Dashboard() {
             {/* ══ OVERVIEW ══════════════════════════════════════════ */}
             {activeSection === "overview" && (
               <div>
-                {/* Hero profile strip */}
                 {user && stats && (
                   <div className="hero-card fade-up">
                     <div className="hero-glow" />
                     <div className="hero-avatar">
-                  {user.image ? (
-                    <img 
-                      src={`http://localhost:3000${user.image}`} 
-                      alt="avatar" 
-                      style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "14px" }} 
-                    />
-                  ) : (
-                    user.name.charAt(0)
-                  )}
-                  <div className="hero-level-ring" />
-                </div>
+                      {user.image
+                        ? <img src={`http://localhost:3000${user.image}`} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "14px" }} />
+                        : user.name.charAt(0)}
+                      <div className="hero-level-ring" />
+                    </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
                         <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 20, fontWeight: 700, color: "#fff" }}>{user.name}</span>
@@ -654,13 +803,26 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <div className="xp-bar-track">
-                        <div className="xp-bar-fill"
-                          style={{ width: `${stats.pct}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})` }} />
+                        <div className="xp-bar-fill" style={{ width: `${stats.pct}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})` }} />
+                      </div>
+                      {/* Profile completion */}
+                      <div className="completion-row">
+                        <span className="completion-label">PROFILE</span>
+                        <div className="completion-track">
+                          <div className="completion-fill" style={{
+                            width: `${completion}%`,
+                            background: completion === 100 ? "#4ade80" : `linear-gradient(90deg, ${T.secondary}, ${T.primary})`
+                          }} />
+                        </div>
+                        <span className="completion-pct" style={{ color: completion === 100 ? "#4ade80" : T.primary }}>{completion}%</span>
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
                       <button className="btn btn-primary" onClick={() => router.push("/candidate/profile")}>Edit Profile</button>
                       <button className="btn btn-outline" onClick={() => setActiveSection("missions")}>View Missions</button>
+                      <button className={`btn ${logoutConfirm ? "btn-danger-confirm" : "btn-danger"}`} onClick={handleLogout}>
+                        {logoutConfirm ? "Confirm?" : "⏻ Logout"}
+                      </button>
                     </div>
                     <div className="corner-tl" style={{ borderColor: T.primary }} />
                     <div className="corner-br" style={{ borderColor: T.primary }} />
@@ -673,7 +835,7 @@ export default function Dashboard() {
                     { label: "Tests Cleared", val: results.length, sub: "+2 this week", trend: "up", spark: [1,2,1,3,2,4,3,5,4,results.length] },
                     { label: "Jobs Applied", val: appliedJobs.length, sub: "Active applications", trend: "up", spark: [0,1,1,2,1,3,2,3,2,appliedJobs.length] },
                     { label: "Total XP", val: user?.xp || 0, sub: `Level ${stats?.lvl || 1}`, trend: "up", spark: [200,400,350,600,550,700,650,800,750,user?.xp||0] },
-                    { label: "Open Bounties", val: jobs.length - appliedJobs.length, sub: "Unclaimed", trend: "neutral", spark: [5,4,6,5,7,6,5,6,5,jobs.length-appliedJobs.length] },
+                    { label: "Open Bounties", val: jobs.length - appliedJobs.length, sub: "Unclaimed", trend: "neutral", spark: [5,4,6,5,7,6,5,6,5,Math.max(0,jobs.length-appliedJobs.length)] },
                   ].map((s, i) => (
                     <div key={i} className={`card fade-up fade-up-${i+1}`}>
                       <div className="card-accent" style={{ background: T.primary }} />
@@ -688,9 +850,7 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Bottom two-col */}
                 <div className="two-col">
-                  {/* Activity feed */}
                   <div className="card fade-up">
                     <div className="sec-head">
                       <div className="sec-icon" style={{ borderColor: T.primary, color: T.primary, background: T.muted }}>◎</div>
@@ -713,7 +873,6 @@ export default function Dashboard() {
                     ))}
                   </div>
 
-                  {/* Skills progress */}
                   <div className="card fade-up">
                     <div className="sec-head">
                       <div className="sec-icon" style={{ borderColor: T.primary, color: T.primary, background: T.muted }}>▲</div>
@@ -724,8 +883,7 @@ export default function Dashboard() {
                         <div key={i} className="prog-row">
                           <div className="prog-label">{skill}</div>
                           <div className="prog-track">
-                            <div className="prog-fill"
-                              style={{ width: `${[88,74,65,55,48][i]}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})`, boxShadow: `0 0 6px ${T.glow}` }} />
+                            <div className="prog-fill" style={{ width: `${[88,74,65,55,48][i]}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})`, boxShadow: `0 0 6px ${T.glow}` }} />
                           </div>
                           <div className="prog-val">{[88,74,65,55,48][i]}%</div>
                         </div>
@@ -749,7 +907,6 @@ export default function Dashboard() {
                   <div className="sec-count">{results.length}/{tests.length} CLEARED</div>
                 </div>
 
-                {/* Progress overview */}
                 <div className="card fade-up" style={{ marginBottom: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                     <Gauge pct={tests.length ? (results.length / tests.length) * 100 : 0} color={T.primary} size={72} thick={6} />
@@ -764,19 +921,18 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {tests.length === 0 && (
-                  <div className="card" style={{ textAlign: "center", padding: 40 }}>
-                    <div style={{ fontFamily: "'Share Tech Mono', monospace", color: "rgba(255,255,255,0.2)", fontSize: 12, letterSpacing: "0.2em" }}>
-                      NO ACTIVE MODULES
-                    </div>
+                {filteredTests.length === 0 && (
+                  <div className="card empty-state">
+                    {searchQuery ? `NO RESULTS FOR "${searchQuery.toUpperCase()}"` : "NO ACTIVE MODULES"}
                   </div>
                 )}
-                {tests.map((test, i) => {
+                {filteredTests.map((test, i) => {
+                  const origIdx = tests.indexOf(test);
                   const result = getResult(test.id);
-                  const locked = isLocked(i);
+                  const locked = isLocked(origIdx);
                   return (
                     <div key={test.id} className={`item-card fade-up${locked ? " locked" : ""}`}>
-                      <div className="item-index">{String(i + 1).padStart(2, "0")}</div>
+                      <div className="item-index">{String(origIdx + 1).padStart(2, "0")}</div>
                       <div className="item-dot" style={{ background: result ? "#4ade80" : locked ? "#f87171" : T.primary, boxShadow: `0 0 6px ${result ? "#4ade80" : locked ? "#f87171" : T.primary}` }} />
                       <div className="item-body">
                         <div className="item-title">{test.title}</div>
@@ -813,26 +969,23 @@ export default function Dashboard() {
                   <div className="sec-count">{appliedJobs.length} ACCEPTED</div>
                 </div>
 
-                {/* Filter chips */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                   {["All", "Applied", "Open"].map(f => (
-                    <div key={f} className="chip chip-blue" style={{ cursor: "pointer", color: T.primary }}>
-                      {f}
-                    </div>
+                    <button key={f} className={`filter-chip${bountyFilter === f ? " active" : ""}`} onClick={() => setBountyFilter(f)}>
+                      {f} {f === "All" ? `(${jobs.length})` : f === "Applied" ? `(${appliedJobs.length})` : `(${jobs.length - appliedJobs.length})`}
+                    </button>
                   ))}
                 </div>
 
-                {jobs.length === 0 && (
-                  <div className="card" style={{ textAlign: "center", padding: 40 }}>
-                    <div style={{ fontFamily: "'Share Tech Mono', monospace", color: "rgba(255,255,255,0.2)", fontSize: 12, letterSpacing: "0.2em" }}>
-                      SCANNING NETWORK FOR TARGETS...
-                    </div>
+                {filteredJobs.length === 0 && (
+                  <div className="card empty-state">
+                    {searchQuery ? `NO RESULTS FOR "${searchQuery.toUpperCase()}"` : "SCANNING NETWORK FOR TARGETS..."}
                   </div>
                 )}
-                {jobs.map((job, i) => {
+                {filteredJobs.map((job, i) => {
                   const applied = appliedJobs.includes(job.id);
                   return (
-                    <div key={job.id} className="item-card fade-up" style={{ opacity: 1 }}>
+                    <div key={job.id} className="item-card fade-up">
                       <div className="item-index">{String(i + 1).padStart(2, "0")}</div>
                       <div className="item-dot" style={{ background: applied ? "#4ade80" : T.primary, boxShadow: `0 0 6px ${applied ? "#4ade80" : T.primary}` }} />
                       <div className="item-body">
@@ -840,6 +993,7 @@ export default function Dashboard() {
                         <div className="item-meta">
                           <span>📍 {job.location?.toUpperCase()}</span>
                           {job.company && <span>· {job.company}</span>}
+                          {job.salary && <span>· {job.salary}</span>}
                           {applied && <span className="chip chip-green">✓ APPLIED</span>}
                         </div>
                       </div>
@@ -868,7 +1022,7 @@ export default function Dashboard() {
                   {[
                     { label: "Completion Rate", pct: tests.length ? Math.round((results.length/tests.length)*100) : 0, color: T.primary },
                     { label: "Application Rate", pct: jobs.length ? Math.round((appliedJobs.length/jobs.length)*100) : 0, color: "#4ade80" },
-                    { label: "Profile Score", pct: 80, color: "#a855f7" },
+                    { label: "Profile Score", pct: completion, color: completion === 100 ? "#4ade80" : "#a855f7" },
                   ].map((r, i) => (
                     <div key={i} className="card fade-up" style={{ textAlign: "center", padding: 24 }}>
                       <div style={{ position: "relative", display: "inline-block", marginBottom: 10 }}>
@@ -889,14 +1043,6 @@ export default function Dashboard() {
                     </div>
                     <div style={{ height: 80, position: "relative" }}>
                       <Spark data={MOCK_SPARK} color={T.primary} />
-                      <svg viewBox={`0 0 80 28`} width="100%" height="100%" style={{ position: "absolute", inset: 0 }}>
-                        <defs>
-                          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={T.primary} stopOpacity="0.3" />
-                            <stop offset="100%" stopColor={T.primary} stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
                       {["Jan","Feb","Mar","Apr","May","Jun"].map(m => (
@@ -914,12 +1060,26 @@ export default function Dashboard() {
                         <div key={i} className="prog-row">
                           <div className="prog-label">{skill}</div>
                           <div className="prog-track">
-                            <div className="prog-fill"
-                              style={{ width: `${[88,74,65,55,48][i]}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})` }} />
+                            <div className="prog-fill" style={{ width: `${[88,74,65,55,48][i]}%`, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})` }} />
                           </div>
                           <div className="prog-val">{[88,74,65,55,48][i]}%</div>
                         </div>
                       ))}
+                  </div>
+                </div>
+
+                {/* Quick actions */}
+                <div className="card fade-up" style={{ marginTop: 20 }}>
+                  <div className="sec-head">
+                    <div className="sec-title" style={{ fontSize: 11 }}>Quick Actions</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button className="btn btn-outline" onClick={() => router.push("/candidate/profile")}>Update Profile</button>
+                    <button className="btn btn-outline" onClick={() => setActiveSection("missions")}>Browse Missions</button>
+                    <button className="btn btn-outline" onClick={() => setActiveSection("bounties")}>View Bounties</button>
+                    <button className={`btn ${logoutConfirm ? "btn-danger-confirm" : "btn-danger"}`} onClick={handleLogout}>
+                      {logoutConfirm ? "Confirm Logout?" : "⏻ Logout"}
+                    </button>
                   </div>
                 </div>
               </div>

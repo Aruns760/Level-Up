@@ -9,13 +9,11 @@ const path = require("path");
 
 const app = express();
 
-/* 🔥 MIDDLEWARES */
+/* ================= CORS ================= */
 
-// CORS
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",
       "http://localhost:3001",
       "https://level-up-livid.vercel.app",
     ],
@@ -23,17 +21,18 @@ app.use(
   })
 );
 
-// JSON Parser
+/* ================= MIDDLEWARE ================= */
+
 app.use(express.json());
 
-// Security
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
   })
 );
 
-// Rate Limiter
+app.use(morgan("dev"));
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
@@ -41,16 +40,10 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// Logger
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-}
-
-/* ✅ STATIC FILES */
+/* ================= STATIC FILES ================= */
 
 app.use(
   "/uploads",
-  cors(),
   express.static(path.join(__dirname, "uploads"), {
     setHeaders: (res) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
@@ -59,54 +52,38 @@ app.use(
   })
 );
 
-/* 📦 ROUTES */
-
-const authRoutes = require("./routes/auth");
-const profileRoutes = require("./routes/profile");
-const recruiterRoutes = require("./routes/recruiter");
-const jobRoutes = require("./routes/job");
-const testRoutes = require("./routes/test");
-const adminRoutes = require("./routes/admin");
-const userRoutes = require("./routes/user");
-const candidateRoutes = require("./routes/candidate");
-
-app.use("/api/auth", authRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/recruiter", recruiterRoutes);
-app.use("/api/jobs", jobRoutes);
-app.use("/api/tests", testRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/candidate", candidateRoutes);
-
-/* 📄 SWAGGER */
-
-const swaggerUi = require("swagger-ui-express");
-const swaggerSpec = require("./swagger");
-
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-/* 🧪 TEST ROUTE */
+/* ================= TEST ROUTE ================= */
 
 app.get("/api/test", (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     message: "Backend Connected Successfully 🚀",
   });
 });
 
-/* ROOT */
+/* ================= ROOT ROUTE ================= */
 
 app.get("/", (req, res) => {
   res.send("TalentLevelUp API Running 🚀");
 });
 
-/* ❌ ERROR HANDLER */
+/* ================= ROUTES ================= */
+
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/profile", require("./routes/profile"));
+app.use("/api/recruiter", require("./routes/recruiter"));
+app.use("/api/jobs", require("./routes/job"));
+app.use("/api/tests", require("./routes/test"));
+app.use("/api/admin", require("./routes/admin"));
+app.use("/api/user", require("./routes/user"));
+app.use("/api/candidate", require("./routes/candidate"));
+
+/* ================= ERROR HANDLER ================= */
 
 const errorHandler = require("./middleware/errorMiddleware");
 app.use(errorHandler);
 
-/* 🚀 SERVER */
+/* ================= SERVER ================= */
 
 const PORT = process.env.PORT || 3000;
 
